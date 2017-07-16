@@ -1,0 +1,11 @@
+name: "kodi"
+type: "neuron"
+author: "corus87"
+
+kalliope_supported_version:
+    - 0.4
+
+tags:
+    - "kodi"
+    - "kodi json"
+    - "kodi kalliope"
