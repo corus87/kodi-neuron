@@ -340,7 +340,10 @@ class KodiThread(threading.Thread):
             self.kodi.Application.Quit()       
             
         if self.set_volume is not None:
-            self.kodi.Application.SetVolume({"volume":self.set_volume})
+            try: 
+                self.kodi.Application.SetVolume({"volume":(int(self.set_volume))})
+            except ValueError:
+                logger.debug("Kodi set_volume needs to be integer. You tried: %s" % self.set_volume)
             
         if self.mute is not None:   
             self.kodi.Application.SetMute({"mute":self.mute})
