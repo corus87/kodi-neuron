@@ -35,9 +35,9 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
 | start_tvshow     | no       |           |         |           |
 | season           | yes      |           | Integer | Is required if start_tvshow. |
 | episode          | yes      |           | Integer | Is required if start_tvshow. |
-| resume_tvshow    | no       |           | Resume a TV-Show.                      |
-| open_season_dir  | no       | false     | If true and start_tvshow or resume_tvshow is used, it will open the current season folder of the TV-Show. | 
-| what_is_running  | no       |           | You need a file template to use it. |
+| resume_tvshow    | no       |           |         | Resume a TV-Show.                      |
+| open_season_dir  | no       | false     |         | If true and start_tvshow or resume_tvshow is used, it will open the current season folder of the TV-Show. | 
+| what_is_running  | no       |           |         | You need a file template to use it. |
 
 
 ## Synapses example
