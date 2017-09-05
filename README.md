@@ -31,7 +31,15 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
 | show_context     | no       | false     |         |           |
 | search_movie     | no       |           |         |           |
 | reask            | no       | false     |         |If true, Kalliope will ask you again if the movie was not found or there are multiple movies with similar name. |
-| abort_orders     | yes      |           | list or string      | Is required if reask is True
+| abort_orders     | yes      |           | list or string      | Is required if reask is True. |
+| start_tvshow     | no       |           |         |           |
+| season           | yes      |           | Integer | Is required if start_tvshow. |
+| episode          | yes      |           | Integer | Is required if start_tvshow. |
+| resume_tvshow    | no       |           | Resume a TV-Show.                      |
+| open_season_dir  | no       | false     | If true and start_tvshow or resume_tvshow is used, it will open the current season folder of the TV-Show. | 
+| what_is_running  | no       |           | You need a file template to use it. |
+
+
 ## Synapses example
 
 ```yml
@@ -111,13 +119,72 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
             - "stop asking"
           reask: True
           file_template: "templates/kodi.j2"        
+  
+  - name: "kodi-start-show"
+    signals:
+      - order: "start tvshow {{ start_tvshow }} season {{ season }} episode {{ episode }}"
+    neurons:
+      - kodi:
+          start_tvshow: "{{ start_tvshow }}"
+          season: "{{ season }}"
+          episode: "{{ episode }}"
+          open_season_dir: True        
+  
+  - name: "kodi-resume-tvshow"
+    signals:
+      - order: "continue tvshow {{ query }}"
+    neurons:
+      - kodi:
+          resume_tvshow: "{{ query }}"
+          open_season_dir: True
 
+          
+  - name: "kodi-whats-running"
+    signals:
+      - order: "what is currently running"
+    neurons:
+      - kodi:
+          what_is_running: True
+          file_template: "templates/kodi.j2" 
+          
 file_template:
     {% if say_labels%} 
         The following movies were found {{ say_labels}}, please define more precisely.
+    
     {% elif movie_not_found %} 
         {{ movie_not_found }} were not found in database, please try again.
-    {% endif %}          
+    
+    {% elif movie_found %} 
+        Yes, {{ movie_found }} was found.   
+
+    {% elif say_found_movie_labels %} 
+        The following movies were found: {{ say_found_movie_labels }}.      
+
+    {% elif say_no_movie_found %} 
+        {{ say_no_movie_found }} was not found.     
+
+    {% elif say_show_title %} 
+        The show title is: {{ say_show_title }}
+
+    {% elif say_episode_title %}
+        The episode title is: {{ say_episode_title }}	
+
+    {% elif say_song_title %}
+        Its running: {{ say_song_title }}	
+
+    {% elif say_song_artist %}
+        Artist is: {{ say_song_artist }}	
+
+    {% elif say_song_album %}
+        Album: {{ say_song_album }} is running
+
+    {% elif say_movie_title %}
+        You are watching: {{ say_movie_title }}
+
+    {% elif say_no_media_infos_found %}
+        No information were found {{ say_no_media_infos_found }}
+
+    {% endif %}      
 ```
 
 ## Notes
@@ -128,6 +195,3 @@ To get a list with your favorites and path use:
 - http://192.168.178.101:8080/jsonrpc?request={ "jsonrpc": "2.0", "method": "Favourites.GetFavourites", "params": { "properties": ["window","path"] }, "id": 1 }
 
 If you have set reask to false, you need to be precisely with your movie name otherwise Kalliope will start the first movie what matches the name in the database.
-
-## Todo
-Search tv shows and episodes
