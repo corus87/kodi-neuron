@@ -38,6 +38,7 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
 | resume_tvshow    | no       |           |         | Resume a TV-Show.                      |
 | open_season_dir  | no       | false     |         | If true and start_tvshow or resume_tvshow is used, it will open the current season folder of the TV-Show. | 
 | what_is_running  | no       |           |         | You need a file template to use it. |
+| check_movie_in_database | no|           |         | You also need a file template.   |
 
 
 ## Synapses example
@@ -146,6 +147,14 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
       - kodi:
           what_is_running: True
           file_template: "templates/kodi.j2" 
+          
+   - name: "kodi-check-movie"
+    signals:
+      - order: "Do I have the movie {{ query }}"
+    neurons:
+      - kodi:
+          check_movie_in_database: "{{ query }}"
+          file_template: "templates/kodi.j2"
           
 file_template:
     {% if say_labels%} 
