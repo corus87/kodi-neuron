@@ -299,7 +299,8 @@ class Kodi(NeuronModule):
                             self.episode_id = episode['episodeid']
                             self.resume = True
                         else:    
-                            self.episode_id = episode['episodeid']               
+                            episode= episode['episodeid']             
+                            self.episode_id = (episode + 1)
                             self.resume = False
 
                 def get_specific_episode(self):
