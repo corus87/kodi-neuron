@@ -10,5 +10,5 @@
         name: kodi-json
         version: 1.0.0
       pip:
-        nmae: fuzzywuzzy
+        name: fuzzywuzzy
         version: 0.16.0
