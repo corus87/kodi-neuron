@@ -5,10 +5,11 @@
   become: true
 
   tasks:
-    - name: "Install pip dependencies"
+    - name: "Kodi Json"
       pip:
         name: kodi-json
         version: 1.0.0
+    - name: "Fuzzywuzzy"             
       pip:
         name: fuzzywuzzy
         version: 0.16.0
