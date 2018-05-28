@@ -340,3 +340,5 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
 {% endif %}
               
 ```
+## Notes
+This is a new version and not all parameters are fully compatible with the old one. If you have the old neuron installed please delete it and also update the synapses with the new parameters. 
