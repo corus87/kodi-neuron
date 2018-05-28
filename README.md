@@ -77,7 +77,7 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
 | second_host_login       |           | string        | Set here the login of your second Kodi                               |        
 | second_host_passwort    |           | string        | Set here the password of your second Kodi                            |
 | favorite                |           | string        | This can be a window or a media type                                 |
-| search_in_favourite     |           | string        | If your favorite is a directory, you can search in there and execute a media or window type |
+| search_in_favorite      |           | string        | If your favorite is a directory, you can search in there and execute a media or window type |
 | add_to_playlist         | False     | True/False    | If True your favorite directory (in my case radio stations) will added to the playlist so you can easy skip to the next item |
 | open_addon              |           | string        | Open the given addon                                                 |                            
 
