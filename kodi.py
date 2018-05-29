@@ -630,7 +630,6 @@ class Kodi(NeuronModule):
             if self.tvshow_option == "random_episode":
                 self.PrintInfos('Play random episode for ' + episode_details['showtitle'] +  ' start with episode ' + episode_details['label'])
             elif self.tvshow_option == "continue_last_show":
-                self.PrintInfos(print_info)
                 self.PrintInfos('Continue to play ' + episode_details['showtitle'] + ' - ' + episode_details['label'])
             else:
                 if episode_details['resume']['position'] > 0:
@@ -644,7 +643,7 @@ class Kodi(NeuronModule):
             self.PlayEpisode(episode_id)    
 
         else:
-            self.PrintInfos('There is nothing to play')
+            self.PrintInfos(print_not_found)
             self.say(say_not_found)
            
     """        
