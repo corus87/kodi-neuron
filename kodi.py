@@ -22,7 +22,7 @@ class Kodi(NeuronModule):
         super(Kodi, self).__init__(**kwargs)
         # Basic configuration
         self.host = kwargs.get('host', 'Localhost')
-        self.port = kwargs.get('port', 80)
+        self.port = kwargs.get('port', 8080)
         self.login = kwargs.get('login', None)
         self.password = kwargs.get('password', None)
         self.cutoff = kwargs.get('cutoff', 70)
