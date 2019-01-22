@@ -13,10 +13,10 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
 |-------------------------|-----------|---------------|---------------------------------------------------------------------|
 |                         |           |               |                                                                     |
 | **BASICS :**            |           |               |                                                                     |
-| kodi_ip                 | localhost |               |                                                                     |           
-| kodi_port               | 8080      | integer       |                                                                     |                    
-| kodi_login              | None      | string        |                                                                     |          
-| kodi_password           | None      | string        |                                                                     |    
+| host	                  | localhost |               |                                                                     |           
+| port	                  | 8080      | integer       |                                                                     |                    
+| login	                  | None      | string        |                                                                     |          
+| password                | None      | string        |                                                                     |    
 | cutoff                  | 70        | 1 - 100       | Percentage of matching the item your are looking for                |          
 | show_notifaction        | True      | True/False    | Shows a notification in Kodi about the given action                 |
 | notifi_title            | Kalliope  | string        | The title of the notification                                       |
