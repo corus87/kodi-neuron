@@ -209,7 +209,10 @@ class Kodi(NeuronModule):
                     winners = sorted(fuzzy_results, key=lambda x: x[1], reverse=True)
                     self.PrintDebug('BEST MATCH: '+ winners[0][0] + " " + str(winners[0][1]) +"%")
                     for winner in winners:
-                        located.append((item for item in results if item[lookingFor] == winner[0]).next())
+                        try: #Python3 next() methode has changed to __next__()
+                            located.append((item for item in results if item[lookingFor] == winner[0]).next())
+                        except AttributeError:
+                            located.append((item for item in results if item[lookingFor] == winner[0]).__next__())
             else:
                 self.PrintDebug('Nothing found for ' + to_search)
         return located[:limit]
