@@ -28,7 +28,7 @@ class Kodi(NeuronModule):
         self.port = kwargs.get('port', 8080)
         self.login = kwargs.get('login', None)
         self.password = kwargs.get('password', None)
-        self.cutoff = kwargs.get('cutoff', 60)
+        self.cutoff = kwargs.get('cutoff', 70)
         
         # Notification 
         self.show_notification = kwargs.get('show_notification', True)
