@@ -5,17 +5,20 @@ import re
 import sys  
 import datetime
 import requests
+import urllib.request as urllib_request
+
+import urllib
+
 from time import sleep
 from kalliope.core.NeuronModule import NeuronModule, MissingParameterException
 from kodijson import Kodi as codi
 from kalliope import Utils
 from fuzzywuzzy import fuzz, process
-
+from datetime import datetime, timedelta
 
 logging.basicConfig()
 logger = logging.getLogger("kalliope")
-reload(sys)  
-sys.setdefaultencoding('utf8')
+
 
 class Kodi(NeuronModule):
     def __init__(self, **kwargs):
@@ -25,11 +28,11 @@ class Kodi(NeuronModule):
         self.port = kwargs.get('port', 8080)
         self.login = kwargs.get('login', None)
         self.password = kwargs.get('password', None)
-        self.cutoff = kwargs.get('cutoff', 70)
+        self.cutoff = kwargs.get('cutoff', 60)
         
         # Notification 
-        self.show_notification = kwargs.get('show_notification', False)
-        self.notifi_title = kwargs.get('notifi_title', 'Kalliope')
+        self.show_notification = kwargs.get('show_notification', True)
+        self.notifi_title = kwargs.get('notifi_title', 'J.A.R.V.I.S')
         self.notifi_displaytime = kwargs.get('notifi_displaytime', 5000)
         
         # Basic actions
@@ -76,7 +79,11 @@ class Kodi(NeuronModule):
         self.song = kwargs.get('song', None)
         self.artist_latest_album = kwargs.get('artist_latest_album', None)
         self.continue_with_artist = kwargs.get('continue_with_artist', False)
-        
+        self.audio_playlist = kwargs.get('audio_playlist', None)
+        self.lastplayed_songs = kwargs.get('lastplayed_songs', None)
+        self.song_limit = kwargs.get('song_limit', 50)
+        self.newest_songs = kwargs.get('newest_songs', None)
+
         # What is running
         self.what_is_running = kwargs.get('what_is_running', False)
 
@@ -85,6 +92,8 @@ class Kodi(NeuronModule):
         self.second_host_port = kwargs.get('second_host_port', 8080)
         self.second_host_login = kwargs.get('second_host_login', None)
         self.second_host_passwort = kwargs.get('second_host_passwort', None)
+        self.first_host_stop = kwargs.get('first_host_stop', True)
+        
         
         # Execute and search for favorites
         self.favorite = kwargs.get('favorite', None)
@@ -94,6 +103,15 @@ class Kodi(NeuronModule):
         # Open Addon
         self.open_addon = kwargs.get('open_addon', None)
         
+        # check movie
+        self.check_movie_in_database  = kwargs.get('check_movie_in_database', None)
+        
+        # check runtime
+        self.check_the_runtime = kwargs.get('check_runtime', None)
+
+        # YouTube
+        self.search_youtube = kwargs.get('search_youtube', None)
+
         # check if parameters have been provided
         if self._is_parameters_ok():     
             host_is_available = True
@@ -109,7 +127,6 @@ class Kodi(NeuronModule):
 
             if host_is_available:    
             # Handle basic action
-                
                 if self.basic_action:
                     self.ExecuteAction(self.basic_action)
                 if self.play_file:
@@ -119,7 +136,7 @@ class Kodi(NeuronModule):
                 if self.scan_music_lib:
                     self.kodi.AudioLibrary.Scan()
                 if self.send_text:
-                    self.kodi.Input.SendText({"done": False, "text": self.send_text})
+                    self.kodi.Input.SendText({"done": False, "text": self.send_text.capitalize()})
                 if self.seek_backward:
                     self.SeekBackward()
                 if self.seek_forward:
@@ -146,7 +163,7 @@ class Kodi(NeuronModule):
                     self.ListenPvrRadio()
                 
                 # Handle Music
-                if self.artist or self.song or self.album or self.genre or self.artist_latest_album:
+                if self.artist or self.song or self.album or self.genre or self.artist_latest_album or self.audio_playlist or self.lastplayed_songs or self.newest_songs:
                     self.ListenToMusic()
 
                 # What is running
@@ -164,6 +181,16 @@ class Kodi(NeuronModule):
                 # Open Addon
                 if self.open_addon:
                     self.OpenAddon()
+                
+                # Check movie
+                if self.check_movie_in_database:
+                    self.check_for_movie_in_database()
+
+                if self.check_the_runtime:
+                    self.check_runtime()
+
+                if self.search_youtube:
+                    self.PlayYoutubeVideos()
                 
             else:
                 self.PrintDebug("Kodi host %s is not reachable" % self.host)
@@ -209,10 +236,7 @@ class Kodi(NeuronModule):
                     winners = sorted(fuzzy_results, key=lambda x: x[1], reverse=True)
                     self.PrintDebug('BEST MATCH: '+ winners[0][0] + " " + str(winners[0][1]) +"%")
                     for winner in winners:
-                        try: #Python3 next() methode has changed to __next__()
-                            located.append((item for item in results if item[lookingFor] == winner[0]).next())
-                        except AttributeError:
-                            located.append((item for item in results if item[lookingFor] == winner[0]).__next__())
+                        located.append((item for item in results if item[lookingFor] == winner[0]).__next__())
             else:
                 self.PrintDebug('Nothing found for ' + to_search)
         return located[:limit]
@@ -231,7 +255,7 @@ class Kodi(NeuronModule):
         if playerid is not None:
             data = self.kodi.Player.GetItem({"playerid":playerid, "properties":
                                             ["title", "album", "artist", "season", 
-                                            "episode", "showtitle", "tvshowid", "description", "file"]})
+                                            "episode", "showtitle", "tvshowid", "description", "file", "rating"]})
             return data['result']['item']
         return None    
 
@@ -255,17 +279,47 @@ class Kodi(NeuronModule):
     Basic actions
     """    
     def SeekForward(self):
-        to_seek = self.GetTimeInSeconds(self.seek_forward)
-        self.PrintInfos("Seeking " + to_seek + " seconds forward")
-        to_seek = int(to_seek)
-        self.PlayerSeek(to_seek)
+        try:
+            seek = re.sub('[^0-9]', '', self.seek_forward)
+            to_seek = self.GetTimeInSeconds(int(seek))
+            if self.seek_unit == "seconds":
+                self.PrintInfos("Seeking %s seconds forward" % seek)
+            if self.seek_unit == "minutes":
+                if int(seek) > 1: 
+                    self.PrintInfos("Seeking %s minutes forward" % seek)
+                else:
+                    self.PrintInfos("Seeking %s minute forward" % seek)
+            if self.seek_unit == "hours":
+                if int(seek) > 1:
+                    self.PrintInfos("Seeking %s hours forward" % seek)
+                else:
+                    self.PrintInfos("Seeking %s hour forward" % seek)
+
+            self.PlayerSeek(int(to_seek))
+        except ValueError:
+            self.PrintInfos("%s is not a Valid integer" % self.seek_forward)
 
     def SeekBackward(self):
-        to_seek = self.GetTimeInSeconds(self.seek_backward)
-        self.PrintInfos("Seeking " + to_seek +  " seconds backward")
-        to_seek = int(to_seek)
-        self.PlayerSeek(-to_seek)
-    
+        try:
+            seek = re.sub('[^0-9]', '', self.seek_backward)
+            to_seek = self.GetTimeInSeconds(int(seek))
+            if self.seek_unit == "seconds":
+                self.PrintInfos("Seeking %s seconds backward" % seek)
+            if self.seek_unit == "minutes":
+                if int(seek) > 1: 
+                    self.PrintInfos("Seeking %s minutes backward" % seek)
+                else:
+                    self.PrintInfos("Seeking %s minute backward" % seek)
+            if self.seek_unit == "hours":
+                if int(seek) > 1:
+                    self.PrintInfos("Seeking %s hours backward" % seek)
+                else:
+                    self.PrintInfos("Seeking %s hour backward" % seek)
+
+            self.PlayerSeek(-int(to_seek))
+        except ValueError:
+            self.PrintInfos("%s is not a Valid integer" % self.seek_backward)
+            
     def PlayerSeek(self, seconds):
         playerid = self.GetPlayerID()
 
@@ -629,25 +683,26 @@ class Kodi(NeuronModule):
             say_not_found = ({'notfound' : ' '}) 
         
         if episode_id:
-            episode_details = self.GetEpisodeDetails(episode_id)             
+            ep = self.GetEpisodeDetails(episode_id)           
             if self.tvshow_option == "random_episode":
-                self.PrintInfos('Play random episode for ' + episode_details['showtitle'] +  ' start with episode ' + episode_details['label'])
+                self.PrintInfos('Play random episode for ' + ep['showtitle'] +  ' start with episode ' + str(ep['season']) + 'x' + str(ep['episode']) + ' - ' + ep['label'])
             elif self.tvshow_option == "continue_last_show":
-                self.PrintInfos('Continue to play ' + episode_details['showtitle'] + ' - ' + episode_details['label'])
+                self.PrintInfos('Continue to play ' + ep['showtitle'] + ' ' + str(ep['season']) + 'x' + str(ep['episode']) + ' - ' + ep['label'])
             else:
-                if episode_details['resume']['position'] > 0:
-                    self.PrintInfos('Resume ' + episode_details['showtitle'] + ' - ' + episode_details['label'])
+                if ep['resume']['position'] > 0:
+                    self.PrintInfos('Resume ' + ep['showtitle'] + ' ' + str(ep['season']) + 'x' + str(ep['episode']) + ' - ' + ep['label'])
                 else:
-                    self.PrintInfos('Start to play ' + episode_details['showtitle'] +  ' - ' + episode_details['label'])
+                    self.PrintInfos('Play ' + ep['showtitle'] + ' ' + str(ep['season']) + 'x' + str(ep['episode']) + ' - ' + ep['label'])
             
             if self.open_season_dir:
-                self.OpenSeasonDir(show[0][0], episode_details['season'])
+                self.OpenSeasonDir(show[0][0], ep['season'])
                 
             self.PlayEpisode(episode_id)    
 
         else:
             self.PrintInfos(print_not_found)
-            self.say(say_not_found)
+            if say_not_found:
+                self.say(say_not_found)
            
     """        
     Live TV       
@@ -682,6 +737,7 @@ class Kodi(NeuronModule):
             channel = self.FindTvChannel(self.channel)
             if len(channel) > 0:
                 self.PrintInfos('Open Channel: ' + channel[0][1])
+                self.kodi.GUI.ActivateWindow({"window": "tvguide"})
                 self.PlayChannel(channel[0][0])
             else:
                 self.PrintInfos('Could not found ' + self.channel)
@@ -730,26 +786,30 @@ class Kodi(NeuronModule):
     def GetAlbumSongs(self, album_id):
         return self.GetSongs(filters={"albumid": int(album_id)})
 
-    def GetMusicGenres(self):
-        return self.kodi.AudioLibrary.GetGenres
-        
     def GetArtistSongs(self, artist_id):
-        return self.GetSongs(filters={"artistid": int(artist_id)})   
+        return self.GetSongs(filters={"artistid": int(artist_id)},
+                            limits={"start":0,"end":self.song_limit},
+                            sort={"method": "playcount", "order": "descending"})  
 
-    def GetSongs(self, filters=None):
+    def GetSongs(self, filters=None, limits=None, sort=None):
+
         if filters:
-            return self.kodi.AudioLibrary.GetSongs({"filter":filters, "limits":{"start":0,"end":100}, "sort":{"method": "rating", "order": "ascending"}})
+            return self.kodi.AudioLibrary.GetSongs({"filter":filters, 
+                                                    "limits":limits, 
+                                                    "sort":sort})
         else:
-            return self.kodi.AudioLibrary.GetSongs({"limits":{"start":0,"end":100}, "sort":{"method": "rating", "order": "descending"}})
+            return self.kodi.AudioLibrary.GetSongs({"properties":["artistid"]})
 
     def GetMusicArtists(self, filters=None):
-        return self.kodi.AudioLibrary.GetArtists({"albumartistsonly": False},)
+        return self.kodi.AudioLibrary.GetArtists({"albumartistsonly": False})
 
     def GetMusicGenres(self):
         return self.kodi.AudioLibrary.GetGenres()
 
     def GetSongsByGenre(self, genre):
-        return self.GetSongs(filters={"field": "genre", "operator": "is", "value": genre})
+        return self.GetSongs(filters={"field": "genre", "operator": "is", "value": genre}, 
+                            limits={"start":0,"end":self.song_limit},
+                            sort={"method": "playcount", "order": "descending"})
 
     def GetNewestAlbumFromArtist(self, artist_id):
         data = self.kodi.AudioLibrary.GetAlbums({"limits":{"start":0,"end":1}, 
@@ -808,7 +868,7 @@ class Kodi(NeuronModule):
         if 'result' in songs and 'songs' in songs['result']:
             ll = self.MatchSearch(to_search, songs['result']['songs'])
             if len(ll) > 0:
-                located = [(item['songid'], item['label']) for item in ll]
+                located = [(item['songid'], item['label'], item['artistid']) for item in ll]
 
         return located    
 
@@ -848,6 +908,27 @@ class Kodi(NeuronModule):
                 located = [(item['albumid'], item['label']) for item in ll]
 
         return located
+        
+    def GetAudioPlaylists(self):
+        data = self.kodi.Files.GetDirectory({"directory": "special://musicplaylists"})
+        return data
+        
+    def FindAudioPlaylist(self, to_search):
+        located = []
+        playlists = self.GetAudioPlaylists()
+        if 'result' in playlists and 'files' in playlists['result']:
+          ll = self.MatchSearch(to_search, playlists['result']['files'])
+          if ll:
+            located = [(item['file'], item['label']) for item in ll]
+        return located
+    
+    def GetLastPlayedSongs(self):
+        return self.kodi.AudioLibrary.GetSongs({"limits":{"start":0,"end":self.song_limit},
+                                                "sort":{"method": "lastplayed", "order": "descending"}})
+
+    def GetNewestSongs(self):
+        return self.kodi.AudioLibrary.GetSongs({"limits":{"start":0,"end":self.song_limit},
+                                                "sort":{"method": "year", "order": "descending"}})
 
     def ListenToMusic(self, shuffle=False):
         artist = None
@@ -855,7 +936,7 @@ class Kodi(NeuronModule):
         if self.artist and not self.song and not self.album:
             artist = self.FindArtist(self.artist)
             if len(artist) > 0:            
-                songs_result = self.GetArtistSongs(artist[0][0])    
+                songs_result = self.GetArtistSongs(artist[0][0]) 
                 if 'songs' in songs_result['result']:
                     songs = songs_result['result']['songs']
                     songs_array = []
@@ -874,33 +955,39 @@ class Kodi(NeuronModule):
         elif self.song:
             if artist:
                 single_song = self.FindSong(self.song, artist[0][0])
-                if self.continue_with_artist:
-                    songs_result = self.GetArtistSongs(artist[0][0])    
-                    if 'songs' in songs_result['result']:
-                        songs = songs_result['result']['songs']
-                        songs_array = []
-                        for song in songs:
-                            songs_array.append(song['songid'])
+
             else:
                 single_song = self.FindSong(self.song) 
 
+            if self.continue_with_artist:
+                if artist:
+                    songs_result = self.GetArtistSongs(artist[0][0])    
+                if single_song:
+                    songs_result = self.GetArtistSongs(single_song[0][2][0])  
+                if 'songs' in songs_result['result']:
+                    songs = songs_result['result']['songs']
+                    songs_array = []
+                    for song in songs:
+                        songs_array.append(song['songid'])
+            
             if len(single_song) > 0:
                 self.PrintInfos('Playing song '+ single_song[0][1])
                 self.PlayerStop()
                 self.ClearAudioPlaylist()
-                if songs_array:
-                    self.AddSongToPlaylist(single_song[0][0])
-                    self.PrintInfos('Contiune with artist is True')
-                    self.AddSongsToPlaylist(songs_array)
-                else:
-                    self.AddSongToPlaylist(single_song[0][0])
+                self.AddSongToPlaylist(single_song[0][0])
                 self.StartAudioPlaylist()
+                if len(songs_array) > 1:
+                    self.PrintInfos('Contiune with artist')
+                    self.AddSongsToPlaylist(songs_array)
+
             else:
                 self.PrintInfos('Could not find song ' + self.song)
                 self.say({'notfound' : self.song})
 
         elif self.album:
-            if artist:
+            
+            if self.artist:
+                artist = self.FindArtist(self.artist)
                 album = self.FindAlbum(self.album, artist[0][0])  
             else:
                 album = self.FindAlbum(self.album)            
@@ -940,7 +1027,7 @@ class Kodi(NeuronModule):
             if artist:
                 album_id = self.GetNewestAlbumFromArtist(artist[0][0])
                 if album_id:
-                    album_label = self.GetAlbumDetails(album_id)['label']
+                    album_label = self.GetAlbumDetails(album_id)['label'] 
                     self.PrintInfos('Play ' + artist[0][1] + ' - ' + album_label)
                     self.PlayerStop()
                     self.ClearAudioPlaylist()
@@ -950,6 +1037,46 @@ class Kodi(NeuronModule):
                 self.PrintInfos('Could not find latest album of  ' + self.artist_latest_album)
                 self.say({'notfound' : self.artist_latest_album})
 
+        elif self.audio_playlist:
+            playlist = self.FindAudioPlaylist(self.audio_playlist)
+            if playlist:
+                self.PrintInfos('Play ' + playlist[0][1])
+                self.PlayerStop()
+                self.ClearAudioPlaylist()
+                self.StartAudioPlaylist(playlist[0][0])
+            else: 
+                self.PrintInfos('Playlist ' + self.audio_playlist + ' not found')
+                self.say({'notfound' : self.audio_playlist})
+
+        elif self.lastplayed_songs:
+            songs_result = self.GetLastPlayedSongs()
+            if 'songs' in songs_result['result']:
+                songs = songs_result['result']['songs']
+                songs_array = []
+                for song in songs:
+                    songs_array.append(song['songid'])
+                self.PrintInfos('Playing last %s songs' % self.song_limit)
+                self.PlayerStop()
+                self.ClearAudioPlaylist() 
+                self.AddSongsToPlaylist(songs_array)
+                self.StartAudioPlaylist()
+            else: 
+                self.PrintInfos('There are no last played songs')
+        
+        elif self.newest_songs:
+            songs_result = self.GetNewestSongs()
+            if 'songs' in songs_result['result']:
+                songs = songs_result['result']['songs']
+                songs_array = []
+                for song in songs:
+                    songs_array.append(song['songid'])
+                self.PrintInfos('Adding %s of the newest songs to playlist' % self.song_limit)
+                self.PlayerStop()
+                self.ClearAudioPlaylist() 
+                self.AddSongsToPlaylist(songs_array)
+                self.StartAudioPlaylist()
+            else: 
+                self.PrintInfos('There are no new songs')
     """
     What is running
     """
@@ -961,6 +1088,10 @@ class Kodi(NeuronModule):
         next_on_current_tvchannel
         current
         '''
+        result = self.GetPlayingItem()
+        to_say = {}
+        to_print = []
+        result2print = None
         if self.what_is_running == "current_on_tvchannel":
             if self.channel:
                 ch_id = self.FindTvChannel(self.channel)
@@ -974,14 +1105,14 @@ class Kodi(NeuronModule):
                             current.append(y)
                             next.append([bc[x+1]])
 
-                    self.PrintInfos('Currently on ' + ch_id[0][1] + ' - ' + current[0]['title'])
-                    self.say({"say_pvr_title_now" : current[0]['title'],
+                    to_print.append('Currently on ' + ch_id[0][1] + ' - ' + current[0]['title'])
+                    to_say.update({"say_pvr_title_now" : current[0]['title'],
                               "say_pvr_channel" : ch_id[0][1]})
                 else:
-                    self.PrintInfos('Could not find channel ' + self.channel)
-                    self.say({"say_channel_not_found" : self.channel}) 
+                    to_print.append('Could not find channel ' + self.channel)
+                    to_say.update({"say_channel_not_found" : self.channel}) 
             else:
-                self.PrintInfos('There are no TV channels')         
+                to_print.append('There are no TV channels')         
         
         elif self.what_is_running == "next_on_tvchannel":
             if self.channel:
@@ -996,18 +1127,17 @@ class Kodi(NeuronModule):
                             current.append(y)
                             next.append([bc[x+1]])
 
-                    self.PrintInfos('Next on ' + ch_id[0][1] + ' - ' + next[0][0]['title'])
-                    self.say({"say_pvr_title_next" : next[0][0]['title'],
+                    to_print.append('Next on ' + ch_id[0][1] + ' - ' + next[0][0]['title'])
+                    to_say.update({"say_pvr_title_next" : next[0][0]['title'],
                               "say_pvr_channel" : ch_id[0][1]})  
 
                 else:
-                    self.PrintInfos('Could not find Channel ' + self.channel)
-                    self.say({"say_channel_not_found" : self.channel}) 
+                    to_print.append('Could not find Channel ' + self.channel)
+                    to_say.update({"say_channel_not_found" : self.channel}) 
             else:
-                self.PrintInfos('There are no TV channels')        
+                to_print.append('There are no TV channels')        
                                
         elif self.what_is_running == "next_on_current_tvchannel":    
-            result = self.GetPlayingItem()
             if result['type'] == 'channel':
                 ch_id = self.FindTvChannel(result['label'])
                 all_bc = self.GetBroadcasts(ch_id[0][0])
@@ -1018,122 +1148,160 @@ class Kodi(NeuronModule):
                     if y['isactive'] == True:
                         next.append([bc[x+1]])
 
-                self.PrintInfos('Next on ' + ch_id[0][1] + ' - ' + next[0][0]['title'])
-                self.say({"say_current_next" : next[0][0]['title']}) 
+                to_print.append('Next on ' + ch_id[0][1] + ' - ' + next[0][0]['title'])
+                to_say.update({"say_current_next" : next[0][0]['title']}) 
         
-        elif self.what_is_running == "current":
-            result = self.GetPlayingItem()
+        elif self.what_is_running == "current":  
             if result:
                 if result['type'] == 'episode':
                     if result['showtitle']:
                         result2print = result['showtitle']
-                        self.PrintInfos('Currently playing show ' + result2print)
-                        self.say({"say_show_title": result2print})
+                        #self.PrintInfos('Currently playing show ' + result2print)
+                        to_print.append('Currently playing show ' + result2print)
+                        to_say.update({"say_show_title": result2print})
 
                     if result['title']:
-                        result2print = result['title']
-                        self.PrintInfos('Currently playing episode ' + result2print)
-                        self.say({"say_episode_title": result2print})
-                
+                        result2print =  str(result['season']) + 'x' + str(result['episode']) + ' - ' + result['title']
+                        result2say = result['title'] 
+                        #self.PrintInfos('Currently playing episode ' + result2print)
+                        to_print.append('Currently playing episode ' + result2print)
+                        to_say.update({"say_episode_title": result2say})
+                        
+
+                    
                 elif result['type'] == 'song' or result['type'] == 'musicvideo':
                     if result['title']:
                         result2print = result['title']
-                        self.PrintInfos('Currently playing song ' + str(result2print))
-                        self.say({"say_song_title": result2print})
+                        to_print.append('Currently playing song ' + str(result2print))
+                        to_say.update({"say_song_title": result2print})
                     
                     if result['artist']:
                         result2print = ', '.join(result['artist'])
-                        self.PrintInfos('Currently playing artist ' + result2print)
-                        self.say({"say_song_artist": result2print})
+                        to_print.append('Currently playing artist ' + result2print)
+                        to_say.update({"say_song_artist": result2print})
                     
                     if result['album']:
                         result2print = result['album']
-                        self.PrintInfos('Currently playing album ' + result2print)
-                        self.say({"say_song_album": result2print})
+                        to_print.append('Currently playing album ' + result2print)
+                        to_say.update({"say_song_album": result2print})
 
                 elif result['type'] == 'movie':
                     if result['title']:
                         result2print = result['title']
-                        self.PrintInfos('Currently playing movie ' + result2print)
-                        self.say({"say_movie_title": result2print})
-                
+                        to_print.append('Currently playing movie ' + result2print)
+                        to_say.update({"say_movie_title": result2print})
+
                 elif result['type'] == 'unknown':
                     if result['title']:
                         result2print = result['title']
                     elif result['label']:
                         result2print = result['label']
                     if result2print:
-                        self.PrintInfos('Currently playing ' + result2print)
-                        self.say({"say_unknown_title": result2print})
+                        to_print.append('Currently playing ' + result2print)
+                        to_say.update({"say_unknown_title": result2print})
                     else:
-                        self.PrintInfos('Could not find anything')
-                        self.say({"say_no_media_infos_found": " " })
+                        to_print.append('Could not find anything')
+                        to_say.update({"say_no_media_infos_found": " " })
                     
                 elif result['type'] == 'channel':
                     if result['title']:
                         result2print = result['title']
-                        self.PrintInfos('Currently playing channel ' + result2print)
-                        self.say({"say_pvr_title": result2print})                
+                        #self.PrintInfos('Currently playing ' + result2print)
+                        to_print.append('Currently playing ' + result2print)
+                        to_say.update({"say_pvr_title": result2print}) 
                 
                 elif result['type'] == 'file':
                     if result['title']:
                         result2print = result['title']
-                        self.PrintInfos('Currently playing file ' + result2print)
-                        self.say({"say_file_title": result2print})
-                        
+                        to_print.append('Currently playing file ' + result2print)
+                        to_say.update({"say_file_title": result2print})
+
             else:
-                self.PrintInfos('Could not find anything')
-                self.say({"say_no_media_infos_found": " " })
-    
-    
-    """
+                to_print.append('Could not find anything')
+                to_say.update({"say_no_media_infos_found": " " })  
+
+        elif self.what_is_running == 'rating':
+            if result['rating']:
+                    result2print = result['rating']
+                    #self.PrintInfos('Rating is ' + str(round(result2print, 2)))
+                    to_print.append('Rating is ' + str(round(result2print, 2)))
+                    to_say.update({'imdb_rating': round(result2print, 2)})
+            else:
+                to_say.update({'no_rating': " "})
+                to_print.append('No rating found')
+
+        if to_say:
+            for a in to_print:
+                if a:
+                    self.PrintInfos(a)
+            self.say(to_say)
+            
+    """ 
     Resume media on second Kodi
     """
+    def OpenSeasonDirOnSecondKodi(self, showid, season):
+       return second_kodiGUI.ActivateWindow({"window":"videos","parameters":["videodb://tvshows/titles/" + str(showid) + "/" + str(season)]})
+        
     def ContinueMediaOnSecondKodi(self):
         host_is_available = True
         types = ['episode', 'movie', 'channel', 'unknown']
         
-        if self.continue_on_second_host:
-            second_kodi = codi("http://" + str(self.continue_on_second_host) + ":" + str(self.second_host_port) + "/jsonrpc", self.second_host_login, self.second_host_passwort)
+        if self.second_host_login:
+            self.second_kodi = codi("http://" + str(self.continue_on_second_host) + ":" + str(self.second_host_port) + "/jsonrpc", self.second_host_login, self.second_host_passwort)
         else:
-            second_kodi = codi("http://" + str(self.continue_on_second_host) + ":" + str(self.second_host_port) + "/jsonrpc")
+            self.second_kodi = codi("http://" + str(self.continue_on_second_host) + ":" + str(self.second_host_port) + "/jsonrpc")
         try:
-            second_kodi.Player.GetActivePlayers()
+            self.second_kodi.Player.GetActivePlayers()
         except requests.exceptions.RequestException:
             host_is_available = False
        
         if host_is_available:
             result = self.GetPlayingItem()
             if result:
-                self.kodi.Input.ExecuteAction({"action": "stop"})
-                sleep(1)
+                if self.first_host_stop:
+                    self.kodi.Input.ExecuteAction({"action": "stop"}) 
+                    sleep(1)
+                    
                 if result['type'] in types:
+                    #print result
                     if result['type'] == 'episode':
                         self.PrintInfos("Continue TV Show " + result['showtitle'] + " on " + self.continue_on_second_host)
-                        second_kodi.Player.Open({"item": {"episodeid": result['id']}, "options": {"resume": True}})
+                        if self.open_season_dir:
+                            self.second_kodi.GUI.ActivateWindow({"window":"videos","parameters":["videodb://tvshows/titles/" + str(result['tvshowid']) + "/" + str(result['season'])]})
+                        self.second_kodi.Player.Open({"item": {"episodeid": result['id']}, "options": {"resume": True}})
                         
                     elif result['type'] == 'movie':
                         self.PrintInfos("Continue movie " + result['label'] + " on " + self.continue_on_second_host)
-                        second_kodi.Player.Open({"item": {"movieid": result['id']}, "options": {"resume": True}})
+                        self.second_kodi.Player.Open({"item": {"movieid": result['id']}, "options": {"resume": True}})
                         
                     elif result['type'] == 'channel':
-                        self.PrintInfos("Continue channel " + result['label'] + " on " + self.continue_on_second_host)
-                        second_kodi.Player.Open({"item": {"channelid": result['id']}})
+                        
+                        channel_id = self.GetTvChannelIdSecondsKodi(result['label'])
+                        if channel_id:
+                            self.PrintInfos("Continue channel " + result['label'] + " on " + self.continue_on_second_host)
+                            self.second_kodi.Player.Open({"item": {"channelid": channel_id}})
                         
                     elif result['type'] == 'unknown':
                         self.PrintInfos("Continue file " + result['label'] + " on " + self.continue_on_second_host)
-                        second_kodi.Player.Open({"item": {"file": result['file']}})
+                        self.second_kodi.Player.Open({"item": {"file": result['file']}})
                     
                     elif result['type'] == 'song':
                         self.PrintInfos("Continue song " + result['label'] + " on " + self.continue_on_second_host)
-                        second_kodi.Player.Open({"item": {"file": result['file']}})
+                        self.second_kodi.Player.Open({"item": {"file": result['file']}})
                 else:
                     self.PrintInfos("Unidentified type, can not process")
             else:
                  self.PrintInfos("There is nothing playing on host")
         else:
             self.PrintInfos("Please set the IP of the second KODI")
-    
+
+
+    def GetTvChannelIdSecondsKodi(self, channel):
+        all_channels = self.second_kodi.PVR.GetChannels({"channelgroupid": "alltv"})  
+        if all_channels:
+            for channelid in all_channels['result']['channels']:
+                if channelid['label'] == channel:
+                    return channelid['channelid']
     """
     Search and execute favorites
     """
@@ -1164,6 +1332,7 @@ class Kodi(NeuronModule):
             if self.search_in_favorite:
                 if favorite[0][0] == 'window':            
                     files = self.kodi.Files.GetDirectory({"directory":favorite[0][1]})
+                    
                     if 'result' in files and 'files' in files['result']:
                         ll = self.MatchSearch(self.search_in_favorite, files['result']['files'], 'label')
                         if ll:
@@ -1172,18 +1341,20 @@ class Kodi(NeuronModule):
                                 if self.add_to_playlist:
                                     for file in files['result']['files']:
                                         if file['filetype'] == 'file':
-                                            file_array.append(file['file'])
+                                            file_array.append([file['file'], file['label']])
                                             
                                     self.kodi.Playlist.Clear({"playlistid": 1})
                                     self.kodi.Playlist.Add({"playlistid": 1, "item": {"file": located[0][1]}})
                                     for file in file_array:
-                                        self.kodi.Playlist.Add({"playlistid": 1, "item": {"file": file}})
+                                        self.kodi.Playlist.Add({"playlistid": 1, "item": {"file": file[0]}})
+                                    
                                     self.PrintInfos('Adding ' + str(len(file_array)) + ' files of ' + favorite[0][2] + ' to playlist')
                                     self.PlayerStop()
                                     self.PrintInfos("Start to play " + located[0][2])
                                     self.kodi.Player.Open({"item": {"playlistid": 1}})
                                     
                                 else:
+                                    self.PlayerStop()
                                     self.kodi.Player.Open({"item": {"file": located[0][1]}})
                                     self.PrintInfos("Start to play " + located[0][2])
 
@@ -1234,7 +1405,166 @@ class Kodi(NeuronModule):
             self.kodi.Addons.ExecuteAddon({"addonid": addon[0][0]})
             self.PrintInfos('Execute addon ' + addon[0][1])
         else:
-            PrintInfos('Could not find addon ' + self.addon)
+            self.PrintInfos('Could not find addon ' + self.addon)
+    
+    """
+    Search the movie in the Kodi database
+    """
+
+    def check_for_movie_in_database(self):
+        if self.check_movie_in_database is not None and self.check_movie_in_database is not '':
+            search = (self.check_movie_in_database).lower()
+            movie_details = self.search_for_movie_details(search)   
+            self.check_movie_exist(movie_details)
+        else:
+            self.PrintDebug("Movie not found")
+            self.check_movie_in_database = None
+            self.say_no_movie_found(self.check_movie_in_database)
+            
+    def say_movie_found(self, label):
+        if self.check_movie_in_database is not None:
+            label_form = (", ".join(label))
+            
+            message = {"movie_found": label_form}
+        else:
+            message = {"movie_found": " "}
+        
+        if label_form != " ":
+            self.PrintInfos("Movie %s found" % label_form)            
+        self.say(message)
+
+
+    def say_found_movie_labels(self, label):
+        label_form = (", ".join(label))
+        
+        message = {
+            "say_found_movie_labels": label_form}
+        self.PrintInfos("Found the following movies %s " % label_form)
+        self.say(message)
+
+
+    def say_no_movie_found(self, check_movie_in_database):
+        if check_movie_in_database is not None: 
+            message = {
+                "say_no_movie_found": check_movie_in_database}
+        else:
+            message = {
+                "say_no_movie_found": " "}
+        if check_movie_in_database is not None:
+            self.PrintInfos("%s not found" % check_movie_in_database)
+            
+        self.say(message)
+    
+    def search_for_movie_details(self, search):
+
+        movies = self.kodi.VideoLibrary.GetMovies()['result']['movies']
+        movie_details = []
+        for m in movies:   
+            if search in m['label'].lower():
+                movie_details.append(m)            
+                self.PrintDebug("Found movie: %s" % movie_details)
+        return movie_details
+   
+    def label_search(self, movie_details):
+        label = []
+        for label_search in movie_details:
+            label.append((label_search)['label'])
+            self.PrintDebug("Found label: %s" %  (", ".join(label)))
+        return label
+   
+    def check_movie_exist(self, movie_details): 
+
+        label = self.label_search(movie_details)
+        label_form = (", ".join(label))
+        
+        if len(movie_details) is 1:    
+            self.PrintDebug("Movie exist: %s" % label_form)
+            self.say_movie_found(label)
+
+        if len(movie_details) > 1:
+            self.PrintDebug("Multiple movies found with: %s" % label_form)
+            self.say_found_movie_labels(label)
+                
+        if len(movie_details) is 0:
+            self.PrintDebug("Movie does not exist")   
+            self.say_no_movie_found(self.check_movie_in_database)
+    
+    """
+    Check how the long the current show/movie/song remain
+    """
+    def check_runtime(self):
+        player_id = self.GetPlayerID()
+        times = self.kodi.Player.GetProperties({"playerid":player_id, "properties":["time", "totaltime"]})
+        if times:
+            totaltime = times['result']['totaltime']
+            time_played = times['result']['time']
+            totaltime_format = datetime.strptime(str(totaltime["hours"]) + ":" + str(totaltime["minutes"]), "%H:%M")
+            runtime = totaltime_format - timedelta(hours=time_played["hours"], minutes=time_played["minutes"])
+            hours = runtime.strftime('%H')
+            minutes = runtime.strftime('%M')
+            runtime = True
+            message = { "runtime": runtime,
+                        "hours": hours.lstrip("0"),
+                        "minutes": minutes.lstrip("0")}
+
+            self.say(message)
+    
+    """
+    Search on the youtube app
+    """
+    def get_youtube_links(self, search_list):
+        # search_text = str(search_list[0])
+        search_text = str(search_list)
+        try:
+            query = urllib.pathname2url(search_text)
+        except AttributeError:
+            query = urllib_request.pathname2url(search_text)
+        url = "https://www.youtube.com/results?search_query=" + query
+        response = urllib_request.urlopen(url)
+        return response.read().decode('utf-8')
+
+    def get_youtube_results(self, results):
+        # Get all video links from page
+        temp_links = []
+        all_video_links = re.findall(r'href=\"\/watch\?v=(.{11})', results)
+        for each_video in all_video_links:
+            if each_video not in temp_links:
+                temp_links.append(each_video)
+        video_links = temp_links
+        # Get all playlist links from page
+        temp_links = []
+        all_playlist_results = re.findall(r'href=\"\/playlist\?list\=(.{34})', results)
+        sep = '"'
+        for each_playlist in all_playlist_results:
+            if each_playlist not in temp_links:
+                cleaned_pl = each_playlist.split(sep, 1)[0]  # clean up dirty playlists
+                temp_links.append(cleaned_pl)
+        playlist_links = temp_links
+        yt_links = []
+        if video_links:
+            yt_links.append(video_links[0])
+            #   print("Found Single Links: " + str(video_links))
+        if playlist_links:
+            yt_links.append(playlist_links[0])
+            #print("Found Playlist Links: " + str(playlist_links))
+        return yt_links
+
+    def PlayYoutubeVideos(self):
+        if self.search_youtube:
+            search_term = self.get_youtube_links(self.search_youtube)
+            results = self.get_youtube_results(search_term)
+
+        if results:
+            if len(results) > 1:
+                self.PrintInfos('Start YouTube Playlist')
+                self.kodi.Player.Open({"item": {"file": "plugin://plugin.video.youtube/play/?playlist_id=" + results[1] + "&play=1&order=shuffle"}})
+            else:
+                self.PrintInfos('Start YouTube')
+                self.kodi.Player.Open({"item": {"file": "plugin://plugin.video.youtube/?path=/root/video&action=play_video&videoid=" + results[0]}})
+        else:
+            self.PrintInfos("Couldn't find anything on youtube about " + self.search_youtube)
+            self.say({'notfound' : self.search_youtube})
+
 
 
     def _is_parameters_ok(self):
