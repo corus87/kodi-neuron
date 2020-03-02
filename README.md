@@ -70,6 +70,7 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
 |                         |           | next_on_tvchannel | Ask what is running next on the given channel - needs the channel parameter |
 |                         |           | next_on_current_tvchannel | Ask what is running next on your current watching channel |
 |                         |           | current                   | Ask what is currently running |   
+|                         |           | rating                    | Ask what is the rating of the current show/movie |   
 |                         |           |               |                                                                     |
 | **MISSCELLANEOUS :**    |           |               |                                                                     |
 | continue_on_second_host |           | integer       | Set here the IP of your second Kodi, to continue the currently running media on a second machine |
@@ -80,6 +81,9 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
 | search_in_favorite      |           | string        | If your favorite is a directory, you can search in there and execute a media or window type |
 | add_to_playlist         | False     | True/False    | If True your favorite directory (in my case radio stations) will added to the playlist so you can easy skip to the next item |
 | open_addon              |           | string        | Open the given addon                                                 |                            
+| check_movie_in_database |           | string        | Check if a movie is in your database |
+| check_runtime  	  |           | True/False    | Ask how many minutes/hours of the current show/movie remains |
+| search_youtube          |           | string        | If Youtube addon is installed, you can search on youtube and it will start play the first search result |
 
 
 ## Return values for global
@@ -108,6 +112,8 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
 | say_pvr_title_now        | Returns the show title of the given channel        |
 | say_pvr_channel          | Returns the channel you asked for                  |
 | say_channel_not_found    | Returns the asked channel if not found             |
+| imdb_rating		   | Returns the imdb rating                            |
+| no_rating                | Returns None if no rating is found                 |
 
 
 ## Return values for what_is_running = next_on_tvchannel
@@ -123,6 +129,19 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
 |--------------------------|----------------------------------------------------|
 | say_current_next         | returns the next show title on the current channel |
 
+## Return values for check_runtime
+| Name			   | Descripton                                         |
+|--------------------------|----------------------------------------------------|
+| runtime                  | Returns True if a show/movie is runnning           |
+| hours                    | Returns the remaining hours                        |
+| minutes                  | Returns the remaining minutes                      |
+
+## Return values for check_movie_in_database
+| Name			   | Descripton                                         |
+|--------------------------|----------------------------------------------------|
+| movie_found              | Returns a single found movie                       |
+| say_found_movie_labels   | Returns all movies which are found                 |
+| say_no_movie_found       | Returns the ask movie, if not found                |
   
 ## Synapses example
 ```
@@ -278,12 +297,39 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
           what_is_running: "current"
           file_template: "templates/kodi.j2"
 
+  - name: "kodi-whats-the-rating"
+    signals:
+      - order: "whats the rating"
+    neurons:
+      - kodi:
+          what_is_running: "imdb_rating"
+          file_template: "templates/kodi.j2"
+	  
   - name: "kodi-continue-on-second-kodi"
     signals:
       - order: "Continue my show in the sleeping room"
     neurons:
       - kodi:
-          continue_on_second_host: 192.168.2.22     
+          continue_on_second_host: 192.168.2.22
+	  
+  - name: "kodi-search-youtube"
+    signals:
+      - order: "search on youtube for {{ query }}"
+    neurons:
+      - kodi:
+          host: 192.168.2.22
+          search_youtube: "{{ query }}"
+          say_template: 
+            - "I'm sorry I could not find anything about {{ notfound }} on youtube"
+ 
+ - name: "kodi-check-movie"
+    signals:
+      - order: "Do I have the movie {{ query }}"
+    neurons:
+      - kodi:
+          host: 192.168.2.22
+          check_movie_in_database: "{{ query }}"
+          file_template: "templates/kodi.j2"
 ```
 
 ## Example file template
@@ -336,9 +382,22 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
 
 {% elif say_channel_not_found %}    
     I could not find channel {{ say_channel_not_found }} 
+    
+{% elif imdb_rating %} 
+    The rating is {{ imdb_rating }}
 
+{% elif no_rating %}
+    There is no rating
+    
+{% elif movie_found %}    
+    Yes you have the movie {{ movie_found }} . 
+
+{% elif say_found_movie_labels %}    
+    I found the following movies: {{ say_found_movie_labels }} 
+
+{% elif say_no_movie_found %}    
+    I could not find the movie {{ say_no_movie_found }}.   
+    
 {% endif %}
               
 ```
-## Notes
-This is a new version and not all parameters are fully compatible with the old one. If you have the old neuron installed please delete it and also update the synapses with the new parameters. 
