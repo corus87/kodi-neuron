@@ -32,7 +32,7 @@ class Kodi(NeuronModule):
         
         # Notification 
         self.show_notification = kwargs.get('show_notification', True)
-        self.notifi_title = kwargs.get('notifi_title', 'J.A.R.V.I.S')
+        self.notifi_title = kwargs.get('notifi_title', 'Kalliope')
         self.notifi_displaytime = kwargs.get('notifi_displaytime', 5000)
         
         # Basic actions
