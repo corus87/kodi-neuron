@@ -84,6 +84,7 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
 | check_movie_in_database |           | string        | Check if a movie is in your database |
 | check_runtime  	  |           | True/False    | Ask how many minutes/hours of the current show/movie remains |
 | search_youtube          |           | string        | If Youtube addon is installed, you can search on youtube and it will start play the first search result |
+| set_volume_to           |           | string/int    | Set volume between 0-100, it doesn't need to be a clean integer, it will remove everything from the string except the integers |
 
 
 ## Return values for global
@@ -330,6 +331,14 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
           host: 192.168.2.22
           check_movie_in_database: "{{ query }}"
           file_template: "templates/kodi.j2"
+	  
+  - name: "kodi-set-volume"
+    signals:
+      - order: "Set volume to {{ volume }}"
+    neurons:
+      - kodi:
+          host: 192.168.2.22
+          set_volume_to: "{{ volume }}"
 ```
 
 ## Example file template
