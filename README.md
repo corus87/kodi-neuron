@@ -26,7 +26,7 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
 | send_text               |           | string        | If a text field is open in Kodi, you can send a text to it          |
 | play_file               |           | string        | You can play every media file, even from a plugin, you need only the path |
 | basic_action            |           | [Kodi DOCS](https://kodi.wiki/view/JSON-RPC_API/v8#Input.Action) | Check the KODI API Docs for Input.Action |
-| gui_window              |           | [Kodi DOCS](https://kodi.wiki/view/JSON-RPC_API/v8#GUI.Window) | Opens a specific window in Kodi |
+| show_window             |           | [Kodi DOCS](https://kodi.wiki/view/JSON-RPC_API/v8#GUI.Window) | Opens a specific window in Kodi |
 | video_path              |           | [Kodi DOCS](https://kodi.wiki/view/Opening_Windows_and_Dialogs) | Opens a specific video path, can also be a non library path |
 | music_path              |           | [Kodi DOCS](https://kodi.wiki/view/Opening_Windows_and_Dialogs) | Opens a specific music path, can also be a non library path |
 | program_path            |           | [Kodi DOCS](https://kodi.wiki/view/Opening_Windows_and_Dialogs) | Opens a specific program path 
