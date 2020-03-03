@@ -194,7 +194,7 @@ class Kodi(NeuronModule):
                 
             else:
                 self.PrintDebug("Kodi host %s is not reachable" % self.host)
-  
+                Utils.print_info("[ Kodi ] Kodi host %s is not reachable" % self.host)
     """ 
     Utils    
     """          
@@ -1096,61 +1096,66 @@ class Kodi(NeuronModule):
             if self.channel:
                 ch_id = self.FindTvChannel(self.channel)
                 if len(ch_id) > 0:
-                    all_bc = self.GetBroadcasts(ch_id[0][0])
                     current = []
                     next = []
-                    bc = all_bc['result']['broadcasts']
-                    for x,y in enumerate(bc):
-                        if y['isactive'] == True:
-                            current.append(y)
-                            next.append([bc[x+1]])
+                    bc = self.get_all_broadcasts(ch_id[0][0])
+                    if bc:
+                        for x,y in enumerate(bc):
+                            if y['isactive'] == True:
+                                current.append(y)
+                                next.append([bc[x+1]])
 
-                    to_print.append('Currently on ' + ch_id[0][1] + ' - ' + current[0]['title'])
-                    to_say.update({"say_pvr_title_now" : current[0]['title'],
-                              "say_pvr_channel" : ch_id[0][1]})
+                        to_print.append('Currently on ' + ch_id[0][1] + ' - ' + current[0]['title'])
+                        to_say.update({"say_pvr_title_now" : current[0]['title'],
+                                  "say_pvr_channel" : ch_id[0][1]})
+                    else:
+                        to_print.append("An error has occurred, please make sure, you have a working EPG")
                 else:
                     to_print.append('Could not find channel ' + self.channel)
                     to_say.update({"say_channel_not_found" : self.channel}) 
             else:
-                to_print.append('There are no TV channels')         
+                to_print.append('There are no TV channels')        
         
         elif self.what_is_running == "next_on_tvchannel":
             if self.channel:
                 ch_id = self.FindTvChannel(self.channel)
                 if len(ch_id) > 0:
-                    all_bc = self.GetBroadcasts(ch_id[0][0])
                     current = []
                     next = []
-                    bc = all_bc['result']['broadcasts']
-                    for x,y in enumerate(bc):
-                        if y['isactive'] == True:
-                            current.append(y)
-                            next.append([bc[x+1]])
+                    bc = self.get_all_broadcasts(ch_id[0][0])
+                    if bc:
+                        for x,y in enumerate(bc):
+                            if y['isactive'] == True:
+                                current.append(y)
+                                next.append([bc[x+1]])
 
-                    to_print.append('Next on ' + ch_id[0][1] + ' - ' + next[0][0]['title'])
-                    to_say.update({"say_pvr_title_next" : next[0][0]['title'],
-                              "say_pvr_channel" : ch_id[0][1]})  
-
+                        to_print.append('Next on ' + ch_id[0][1] + ' - ' + next[0][0]['title'])
+                        to_say.update({"say_pvr_title_next" : next[0][0]['title'],
+                                  "say_pvr_channel" : ch_id[0][1]})  
+                    else:
+                        to_print.append("An error has occurred, please make sure, you have a working EPG")
                 else:
                     to_print.append('Could not find Channel ' + self.channel)
                     to_say.update({"say_channel_not_found" : self.channel}) 
             else:
+                to_say.update({"say_channel_not_found" : self.channel}) 
                 to_print.append('There are no TV channels')        
                                
         elif self.what_is_running == "next_on_current_tvchannel":    
             if result['type'] == 'channel':
                 ch_id = self.FindTvChannel(result['label'])
-                all_bc = self.GetBroadcasts(ch_id[0][0])
                 next = []
-                bc = all_bc['result']['broadcasts']
-                
-                for x,y in enumerate(bc):
-                    if y['isactive'] == True:
-                        next.append([bc[x+1]])
+                bc = self.get_all_broadcasts(ch_id[0][0])
+                if bc:
+                    for x,y in enumerate(bc):
+                        if y['isactive'] == True:
+                            next.append([bc[x+1]])
 
-                to_print.append('Next on ' + ch_id[0][1] + ' - ' + next[0][0]['title'])
-                to_say.update({"say_current_next" : next[0][0]['title']}) 
-        
+                    to_print.append('Next on ' + ch_id[0][1] + ' - ' + next[0][0]['title'])
+                    to_say.update({"say_current_next" : next[0][0]['title']}) 
+                else:
+                    to_print.append("An error has occurred, please make sure, you have a working EPG")
+                  
         elif self.what_is_running == "current":  
             if result:
                 if result['type'] == 'episode':
@@ -1229,13 +1234,21 @@ class Kodi(NeuronModule):
             else:
                 to_say.update({'no_rating': " "})
                 to_print.append('No rating found')
-
-        if to_say:
+        
+        if to_print:
             for a in to_print:
                 if a:
                     self.PrintInfos(a)
+        if to_say:
             self.say(to_say)
             
+    def get_all_broadcasts(self, ch_id):
+        all_bc = self.GetBroadcasts(ch_id)
+        try: 
+            return all_bc['result']['broadcasts']
+        except KeyError:
+            return None  
+
     """ 
     Resume media on second Kodi
     """
