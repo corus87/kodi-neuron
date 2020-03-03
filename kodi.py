@@ -931,15 +931,14 @@ class Kodi(NeuronModule):
                                                 "sort":{"method": "year", "order": "descending"}})
 
     def ListenToMusic(self, shuffle=False):
-        artist = None
-        songs_array = None
+        artist = []
+        songs_array = []
         if self.artist and not self.song and not self.album:
             artist = self.FindArtist(self.artist)
             if len(artist) > 0:            
                 songs_result = self.GetArtistSongs(artist[0][0]) 
                 if 'songs' in songs_result['result']:
                     songs = songs_result['result']['songs']
-                    songs_array = []
                     for song in songs:
                         songs_array.append(song['songid'])
                     
@@ -966,7 +965,6 @@ class Kodi(NeuronModule):
                     songs_result = self.GetArtistSongs(single_song[0][2][0])  
                 if 'songs' in songs_result['result']:
                     songs = songs_result['result']['songs']
-                    songs_array = []
                     for song in songs:
                         songs_array.append(song['songid'])
             
@@ -1009,7 +1007,6 @@ class Kodi(NeuronModule):
                 songs_result = self.GetSongsByGenre(genre[0][1])
                 if 'songs' in songs_result['result']:
                     songs = songs_result['result']['songs']
-                    songs_array = []
                     for song in songs:
                         songs_array.append(song['songid'])
                     
@@ -1052,7 +1049,6 @@ class Kodi(NeuronModule):
             songs_result = self.GetLastPlayedSongs()
             if 'songs' in songs_result['result']:
                 songs = songs_result['result']['songs']
-                songs_array = []
                 for song in songs:
                     songs_array.append(song['songid'])
                 self.PrintInfos('Playing last %s songs' % self.song_limit)
@@ -1067,7 +1063,6 @@ class Kodi(NeuronModule):
             songs_result = self.GetNewestSongs()
             if 'songs' in songs_result['result']:
                 songs = songs_result['result']['songs']
-                songs_array = []
                 for song in songs:
                     songs_array.append(song['songid'])
                 self.PrintInfos('Adding %s of the newest songs to playlist' % self.song_limit)
