@@ -1579,6 +1579,7 @@ class Kodi(NeuronModule):
             self.say({'notfound' : self.search_youtube})
    
     def SetVolume(self):
+        self.PrintDebug('set_volume is %s ' % self.set_volume)
         volume = self.clean_integer(self.set_volume)
         try: 
             volume = int(volume)
