@@ -115,6 +115,9 @@ class Kodi(NeuronModule):
         # Set Volume 
         self.set_volume = kwargs.get('set_volume_to', None)
         
+        # Get Volume
+        self.get_volume = kwargs.get('get_volume', False)
+        
         # check if parameters have been provided
         if self._is_parameters_ok():     
             host_is_available = True
@@ -197,6 +200,9 @@ class Kodi(NeuronModule):
                     
                 if self.set_volume:
                     self.SetVolume()
+                    
+                if self.get_volume:
+                    self.GetVolume()
             else:
                 self.PrintDebug("Kodi host %s is not reachable" % self.host)
                 Utils.print_info("[ Kodi ] Kodi host %s is not reachable" % self.host)
@@ -1587,7 +1593,12 @@ class Kodi(NeuronModule):
             self.PrintInfos("Couldn't find any integer in %s " % self.set_volume)
             return
         self.kodi.Application.SetVolume({"volume": int(volume)})
-
+        
+    def GetVolume(self):
+        volume = self.kodi.Application.GetProperties({"properties":["volume", "muted"]})
+        self.say({"current_volume": volume["result"]["volume"],
+                  "muted": volume["result"]["muted"]})
+    
     def clean_integer(self, volume):
         return re.sub('[^0-9]', '', volume)
 
