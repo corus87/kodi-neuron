@@ -85,6 +85,7 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
 | check_runtime  	  |           | True/False    | Ask how many minutes/hours of the current show/movie remains |
 | search_youtube          |           | string        | If Youtube addon is installed, you can search on youtube and it will start play the first search result |
 | set_volume_to           |           | string/int    | Set volume between 0-100, it doesn't need to be a clean integer, it will remove everything from the string except the integers |
+| get_volume		  | False     | True/False    | Get the current Volume |
 
 
 ## Return values for global
@@ -144,6 +145,12 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
 | say_found_movie_labels   | Returns all movies which are found                 |
 | say_no_movie_found       | Returns the ask movie, if not found                |
   
+## Return values for get_volume
+| Name			   | Descripton						|
+|--------------------------|----------------------------------------------------|
+| current_volume	   | Returns the current volume				|
+| muted			   | Returns the current mute status --> true or false  |
+
 ## Synapses example
 ```
   - name: "kodi-play-pause"
