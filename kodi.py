@@ -798,18 +798,15 @@ class Kodi(NeuronModule):
         return self.GetSongs(filters={"albumid": int(album_id)})
 
     def GetArtistSongs(self, artist_id):
-        return self.GetSongs(filters={"artistid": int(artist_id)},
-                            limits={"start":0,"end":self.song_limit},
-                            sort={"method": "playcount", "order": "descending"})  
+        return self.GetSongs({"filter":{"artistid": int(artist_id)},
+                             "limits":{"start":0,"end":self.song_limit},
+                             "sort": {"method": "playcount", "order": "descending"}})  
 
-    def GetSongs(self, filters=None, limits=None, sort=None):
+    def GetSongs(self, params=None):
+        if params:
+            return self.kodi.AudioLibrary.GetSongs(params)
 
-        if filters:
-            return self.kodi.AudioLibrary.GetSongs({"filter":filters, 
-                                                    "limits":limits, 
-                                                    "sort":sort})
-        else:
-            return self.kodi.AudioLibrary.GetSongs({"properties":["artistid"]})
+        return self.kodi.AudioLibrary.GetSongs({"properties":["artistid"]})
 
     def GetMusicArtists(self, filters=None):
         return self.kodi.AudioLibrary.GetArtists({"albumartistsonly": False})
@@ -818,9 +815,9 @@ class Kodi(NeuronModule):
         return self.kodi.AudioLibrary.GetGenres()
 
     def GetSongsByGenre(self, genre):
-        return self.GetSongs(filters={"field": "genre", "operator": "is", "value": genre}, 
-                            limits={"start":0,"end":self.song_limit},
-                            sort={"method": "playcount", "order": "descending"})
+        return self.GetSongs({"filter":{"field": "genre", "operator": "is", "value": genre}, 
+                              "limits":{"start":0,"end":self.song_limit},
+                              "sort":{"method": "playcount", "order": "descending"}})
 
     def GetNewestAlbumFromArtist(self, artist_id):
         data = self.kodi.AudioLibrary.GetAlbums({"limits":{"start":0,"end":1}, 
@@ -828,9 +825,8 @@ class Kodi(NeuronModule):
                                                 "sort":{"method": "year", "order": "descending"}})
         if 'albums' in data['result']:
             album = data['result']['albums'][0]
-            return album['albumid']
-        else:
-            return None
+            return album
+        return None
     
     def GetAlbumDetails(self, album_id):
         data = self.kodi.AudioLibrary.GetAlbumDetails({"albumid": int(album_id), "properties":["artist"]})
@@ -1001,8 +997,8 @@ class Kodi(NeuronModule):
             else:
                 album = self.FindAlbum(self.album)            
             if len(album) > 0:
-                album_artist = self.GetAlbumDetails(album[0][0])['artist']                
-                self.PrintInfos('Play ' + ''.join(album_artist) + ' - ' + album[0][1])
+                album_artist = self.GetAlbumDetails(album[0][0])               
+                self.PrintInfos('Play ' + ''.join(album_artist["artist"][0]) + ' - ' + album[0][1])
                 self.PlayerStop()
                 self.ClearAudioPlaylist() 
                 self.AddAlbumToPlaylist(album[0][0], shuffle)
@@ -1033,13 +1029,12 @@ class Kodi(NeuronModule):
         elif self.artist_latest_album:
             artist = self.FindArtist(self.artist_latest_album)
             if artist:
-                album_id = self.GetNewestAlbumFromArtist(artist[0][0])
-                if album_id:
-                    album_label = self.GetAlbumDetails(album_id)['label'] 
-                    self.PrintInfos('Play ' + artist[0][1] + ' - ' + album_label)
+                album = self.GetNewestAlbumFromArtist(artist[0][0])
+                if album:
+                    self.PrintInfos('Play ' + artist[0][1] + ' - ' + album["label"])
                     self.PlayerStop()
                     self.ClearAudioPlaylist()
-                    self.AddAlbumToPlaylist(album_id)
+                    self.AddAlbumToPlaylist(album['albumid'])
                     self.StartAudioPlaylist()
             else: 
                 self.PrintInfos('Could not find latest album of  ' + self.artist_latest_album)
