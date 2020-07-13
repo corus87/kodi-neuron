@@ -789,13 +789,13 @@ class Kodi(NeuronModule):
         return self.kodi.Playlist.Clear({"playlistid": 0})
 
     def GetArtistAlbums(self, artist_id):
-        return self.kodi.AudioLibrary.GetAlbums(filters={"artistid": int(artist_id)})
+        return self.kodi.AudioLibrary.GetAlbums({"filter": {"artistid": int(artist_id)}})
         
     def GetAlbums(self):
         return self.kodi.AudioLibrary.GetAlbums()
         
     def GetAlbumSongs(self, album_id):
-        return self.GetSongs(filters={"albumid": int(album_id)})
+        return self.GetSongs({"filter": {"albumid": int(album_id)}})
 
     def GetArtistSongs(self, artist_id):
         return self.GetSongs({"filter":{"artistid": int(artist_id)},
