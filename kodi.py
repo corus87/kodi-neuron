@@ -29,6 +29,7 @@ class Kodi(NeuronModule):
         self.login = kwargs.get('login', None)
         self.password = kwargs.get('password', None)
         self.cutoff = kwargs.get('cutoff', 70)
+        self.player_goto = kwargs.get('player_goto', None)
         
         # Notification 
         self.show_notification = kwargs.get('show_notification', True)
@@ -135,6 +136,11 @@ class Kodi(NeuronModule):
             # Handle basic action
                 if self.basic_action:
                     self.ExecuteAction(self.basic_action)
+                if self.player_goto:
+                    for a in ["next", "previous", "specific"]:
+                        if self.player_goto.lower() == a:
+                            return self.PlayerGoTo()
+                    return self.PrintInfos("[ Kodi ] %s is not a valid command, please check the docs." % self.player_goto)
                 if self.play_file:
                     self.PlayerOpen(self.play_file)
                 if self.scan_video_lib:
@@ -351,7 +357,11 @@ class Kodi(NeuronModule):
         self.PrintInfos('Playing ' + file)
         return self.kodi.Player.Open({"item":{"file": file}})
     
-   
+    def PlayerGoTo(self):
+        playerid = self.GetPlayerID()
+        if playerid is not None:
+            self.kodi.Player.GoTo({"playerid": playerid, "to": self.player_goto.lower()})
+            
     def ActivateWindow(self):
         if self.gui_window:
             return self.kodi.GUI.ActivateWindow({"window": self.gui_window})
