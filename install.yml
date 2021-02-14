@@ -1,17 +1,12 @@
-- name: kalliope kodi neuron install
+- name: kodi neuron
   hosts: localhost
   gather_facts: no
   connection: local
   become: true
-
   tasks:
-    - name: "Kodi Json"
+    - name: "Dependencies"
       pip:
-        name: kodi-json
-        version: 1.0.0
-        executable: pip3
-    - name: "Fuzzywuzzy"             
-      pip:
-        name: fuzzywuzzy
-        version: 0.16.0
+        name: 
+          - kodi-json
+          - fuzzywuzzy
         executable: pip3
