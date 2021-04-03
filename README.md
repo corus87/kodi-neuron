@@ -86,6 +86,8 @@ kalliope install --git-url https://github.com/corus87/kodi-neuron
 | check_runtime  	  |           | True/False    | Ask how many minutes/hours of the current show/movie remains |
 | search_youtube          |           | string        | If Youtube addon is installed, you can search on youtube and it will start play the first search result |
 | set_volume_to           |           | string/int    | Set volume between 0-100, it doesn't need to be a clean integer, it will remove everything from the string except the integers |
+| reduce_volume           |           | string/int    | Reduce the volume by a given value. If the current volume is 50% and you want to reduce it by 70% it will reduce the volume to 0% |
+| add_volume              |           | string/int    | Add volume to the current volume. If the current volume is 50% and you want to add a volume of 60%, the new volume will be 100%. |
 | get_volume		  | False     | True/False    | Get the current Volume |
 
 
