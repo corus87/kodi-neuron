@@ -115,6 +115,8 @@ class Kodi(NeuronModule):
         
         # Set Volume 
         self.set_volume = kwargs.get('set_volume_to', None)
+        self.add_volume = kwargs.get('add_volume', None)
+        self.reduce_volume = kwargs.get('reduce_volume', None
         
         # Get Volume
         self.get_volume = kwargs.get('get_volume', False)
@@ -206,7 +208,10 @@ class Kodi(NeuronModule):
                     
                 if self.set_volume:
                     self.SetVolume()
-                    
+                                        
+                if self.reduce_volume or self.add_volume:
+                    self.AddOrReduceVolume()
+                                        
                 if self.get_volume:
                     self.GetVolume()
             else:
@@ -1598,7 +1603,30 @@ class Kodi(NeuronModule):
             self.PrintInfos("Couldn't find any integer in %s " % self.set_volume)
             return
         self.kodi.Application.SetVolume({"volume": int(volume)})
-        
+
+    def AddOrReduceVolume(self):
+        if self.add_volume:
+            volume = self.clean_integer(self.add_volume)
+        if self.reduce_volume:
+            volume = self.clean_integer(self.reduce_volume)
+        try: 
+            volume = int(volume)
+        except ValueError:
+            self.PrintInfos("Couldn't find any integer in %s " % self.add_volume if self.add_volume else self.reduce_volume)
+            return
+
+        current_volume = self.kodi.Application.GetProperties({"properties":["volume"]})
+        if self.add_volume:
+            new_volume = current_volume["result"]["volume"] + volume
+            if new_volume > 100:
+                new_volume = 100
+        else:
+            new_volume = current_volume["result"]["volume"] - volume
+            if new_volume < 0:
+                new_volume = 0
+
+        self.kodi.Application.SetVolume({"volume": int(new_volume)})
+
     def GetVolume(self):
         volume = self.kodi.Application.GetProperties({"properties":["volume", "muted"]})
         self.say({"current_volume": volume["result"]["volume"],
